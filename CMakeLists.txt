@@ -34,6 +34,7 @@ include(CMakeDependentOption)
 CMAKE_DEPENDENT_OPTION(WITH_TESTS "build with tests" ON "CMAKE_BUILD_TYPE STREQUAL Debug" OFF)
 option(WITH_TOOLS "build with tools" OFF)
 option(WITH_TERARK_ZIP "build with TerarkZipTable support" ON)
+option(WITH_TERARKFS "build with experimental TerarkFS" ON)
 option(WITH_BOOSTLIB "build with boost, if WITH_TERARK_ZIP is ON, this will also set to ON" OFF)
 
 option(BUILD_SUFFIX "library sufix" "d")
@@ -64,6 +65,10 @@ if(WITH_TERARK_ZIP)
   SET(TERARK_ZIP_LIB terark-zip-${BUILD_SUFFIX})
 endif()
 
+if(WITH_TERARKFS)
+  add_definitions(-DWITH_TERARKFS=1)
+endif()
+
 IF(WITH_COVERAGE)
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
 ENDIF()
@@ -84,6 +89,10 @@ if(WITH_TERARK_ZIP)
   INCLUDE_DIRECTORIES(${terark_zip_include_dir})
 ENDIF()
 
+if(WITH_TERARKFS)
+  GET_TARGET_PROPERTY(terarkfs_include_dir terarkfs INCLUDE_DIRECTORIES)
+  INCLUDE_DIRECTORIES(${terarkfs_include_dir})
+ENDIF()
 
 #-------------------------- Third-party Library Flags for RocksDB
 if(WITH_JEMALLOC)
@@ -352,6 +361,13 @@ if(WITH_TBB)
   add_definitions(-DTBB)
   include_directories(${TBB_INCLUDE_DIR})
   list(APPEND THIRDPARTY_LIBS ${TBB_LIBRARIES})
+endif()
+
+option(WITH_TERARKFS "build with experimental TerarkFS" ON)
+if(WITH_TERARKFS)
+  add_definitions(-DTERARKFS)
+  include_directories(${TERARKFS_INCLUDE_DIR})
+  list(APPEND THIRDPARTY_LIBS ${TERARKFS_LIBRARIES})
 endif()
 
 # Stall notifications eat some performance from inserts
@@ -754,6 +770,10 @@ IF(WITH_TERARK_ZIP)
                       table/terark_zip_table.cc
                       tools/remote_compaction_worker_101.cc)
 ENDIF()
+
+IF(WITH_TERARKFS)
+  LIST(APPEDN SOURCES env/terarkfs_env.cc)
+ENDIF
 
 IF(WITH_TESTS OR WITH_TOOLS)
   LIST(APPEND SOURCES utilities/cassandra/cassandra_compaction_filter.cc

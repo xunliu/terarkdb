@@ -19,3 +19,6 @@
 [submodule "third-party/gflags"]
 	path = third-party/gflags
 	url = https://github.com/gflags/gflags.git
+[submodule "third-party/terarkfs"]
+	path = third-party/terarkfs
+	url = https://github.com/TeamSKVDS/terarkfs.git
