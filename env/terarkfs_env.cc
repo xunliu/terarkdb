@@ -48,9 +48,18 @@ class TerarkfsEnv {
   }
 
   Status NewDirectory(const std::string& name,
-                      std::unique_ptr<Directory>* result) {}
+                      std::unique_ptr<Directory>* result) {
+    auto* meta = storage_->new_masse_folder(name);
+    if (meta == nullptr) {
+      return Status::Incomplete();
+    }
+    result->reset(new TerarkfsDirectory(meta->m_file_id));
+    return Status::OK();
+  }
 
-  Status FileExists(const std::string& fname) {}
+  Status FileExists(const std::string& fname) {
+    
+  }
 
   Status GetChildren(const std::string& dir, std::vector<std::string>* result) {
       

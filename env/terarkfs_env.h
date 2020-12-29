@@ -198,6 +198,14 @@ class TerarkfsWritableFile : public WritableFile {
     return Status::OK();
   }
 };
+class TerarkfsDirectory : public Directory {
+  size_t id_;
+public:
+  explicit TerarkfsDirectory(size_t id) : id_(id) {}
+  virtual Status Fsync() override {
+    return Status::OK();
+  }
+};
 
 class TerarkfsEnv : public EnvWrapper {
  public:
