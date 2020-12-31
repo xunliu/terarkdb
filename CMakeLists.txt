@@ -90,7 +90,7 @@ if(WITH_TERARK_ZIP)
 ENDIF()
 
 if(WITH_TERARKFS)
-  GET_TARGET_PROPERTY(terarkfs_include_dir terarkfs INCLUDE_DIRECTORIES)
+  GET_TARGET_PROPERTY(terarkfs_include_dir masse INCLUDE_DIRECTORIES)
   INCLUDE_DIRECTORIES(${terarkfs_include_dir})
 ENDIF()
 
@@ -772,8 +772,8 @@ IF(WITH_TERARK_ZIP)
 ENDIF()
 
 IF(WITH_TERARKFS)
-  LIST(APPEDN SOURCES env/terarkfs_env.cc)
-ENDIF
+  LIST(APPEND SOURCES env/terarkfs_env.cc)
+ENDIF()
 
 IF(WITH_TESTS OR WITH_TOOLS)
   LIST(APPEND SOURCES utilities/cassandra/cassandra_compaction_filter.cc

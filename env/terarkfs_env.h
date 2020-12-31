@@ -13,13 +13,10 @@
 #include <string>
 #include <vector>
 
-#include "linux/fs.h"
-#include "stdio.h"
-
+#include "masse_storage.h"
 #include "rocksdb/env.h"
 #include "rocksdb/status.h"
-
-#include "masse_storage.h"
+#include "stdio.h"
 
 namespace rocksdb {
 
@@ -29,14 +26,13 @@ class TerarkfsSequentialFile : public SequentialFile {
   size_t offset_ = 0;
 
  public:
-  TerarkfsSequentialFile(masse::masse_readable_file* file, const EnvOptions& options) :
-    file_(file) {
+  TerarkfsSequentialFile(masse::masse_readable_file* file,
+                         const EnvOptions& options)
+      : file_(file) {
     assert(options.use_direct_reads && !options.use_aio_reads);
   }
 
-  virtual ~TerarkfsSequentialFile() {
-    file_->close();
-  }
+  virtual ~TerarkfsSequentialFile() { file_->close(); }
 
   virtual Status Read(size_t n, Slice* result, char* scratch) override {
     if (file_->pread(scratch, n, offset_, nullptr, true) != n) {
@@ -55,22 +51,19 @@ class TerarkfsSequentialFile : public SequentialFile {
     *result = Slice(scratch, n);
     return Status::OK();
   }
-  
+
   virtual Status Skip(uint64_t n) override {
     offset_ += n;
+    return Status::OK();
   }
 
-  virtual bool use_direct_io() const override {
-    return true;
-  }
+  virtual bool use_direct_io() const override { return false; }
 
   virtual size_t GetRequiredBufferAlignment() const override {
     return masse::MASSE_WRITE_ALIGN_SIZE;
   }
 
-  size_t GetTerarkfsFileID() const {
-    return file_->m_file_meta->m_file_id;
-  }
+  size_t GetTerarkfsFileID() const { return file_->m_file_meta->m_file_id; }
 };
 
 class TerarkfsRandomAccessFile : public RandomAccessFile {
@@ -79,15 +72,13 @@ class TerarkfsRandomAccessFile : public RandomAccessFile {
 
  public:
   TerarkfsRandomAccessFile(masse::masse_readable_file* file,
-                           const EnvOptions& options) :
-    file_(file) {
+                           const EnvOptions& options)
+      : file_(file) {
     assert(options.use_direct_reads && !options.use_aio_reads);
   }
-  
-  virtual ~TerarkfsRandomAccessFile() {
-    file_->close();
-  }
-  
+
+  virtual ~TerarkfsRandomAccessFile() { file_->close(); }
+
   virtual Status Read(uint64_t offset, size_t n, Slice* result,
                       char* scratch) const final {
     if (file_->pread(scratch, n, offset, nullptr, true) != n) {
@@ -101,21 +92,15 @@ class TerarkfsRandomAccessFile : public RandomAccessFile {
     return Status::OK();
   }
 
-  virtual bool use_aio_reads() const final {
-    return false;
-  }
+  virtual bool use_aio_reads() const final { return false; }
 
-  virtual bool use_direct_io() const final {
-    return true;
-  }
+  virtual bool use_direct_io() const final { return true; }
 
   virtual size_t GetRequiredBufferAlignment() const final {
     return masse::MASSE_WRITE_ALIGN_SIZE;
   }
 
-  size_t GetTerarkfsFileID() const {
-    return file_->m_file_meta->m_file_id;
-  }
+  size_t GetTerarkfsFileID() const { return file_->m_file_meta->m_file_id; }
 };
 
 class TerarkfsWritableFile : public WritableFile {
@@ -124,14 +109,12 @@ class TerarkfsWritableFile : public WritableFile {
 
  public:
   explicit TerarkfsWritableFile(masse::masse_writable_file* file,
-                                const EnvOptions& options) :
-    file_(file) {
+                                const EnvOptions& options)
+      : file_(file) {
     assert(options.use_direct_reads && !options.use_aio_reads);
   }
 
-  virtual ~TerarkfsWritableFile() {
-    file_->close();
-  }
+  virtual ~TerarkfsWritableFile() { file_->close(); }
 
   virtual Status Append(const Slice& data) override {
     if (data.size() != file_->write(data.data(), data.size())) {
@@ -143,46 +126,41 @@ class TerarkfsWritableFile : public WritableFile {
   virtual Status PositionedAppend(const Slice& data, uint64_t offset) override {
     return Status::NotSupported();
   }
-  
+
   virtual Status Truncate(uint64_t size) override {
     return Status::NotSupported();
   }
-  
-  virtual Status Sync() override {
-    return Status::OK();
-  }
+
+  virtual Status Sync() override { return Status::OK(); }
 
   virtual Status Fsync() override {
     file_->flush(false);
+    return Status::OK();
   }
 
   virtual Status Flush() override {
     file_->flush(true);
+    return Status::OK();
   }
 
   virtual Status Close() override {
     file_->close();
+    return Status::OK();
   }
 
   virtual uint64_t GetFileSize() override {
     return file_->m_file_meta->m_file_size;
   }
 
-  virtual bool IsSyncThreadSafe() const override {
-    return true;
-  }
+  virtual bool IsSyncThreadSafe() const override { return true; }
 
   virtual size_t GetRequiredBufferAlignment() const final {
     return masse::MASSE_WRITE_ALIGN_SIZE;
   }
 
-  virtual bool use_direct_io() const final {
-    return true;
-  }
+  virtual bool use_direct_io() const final { return true; }
 
-    size_t GetTerarkfsFileID() const {
-    return file_->m_file_meta->m_file_id;
-  }
+  size_t GetTerarkfsFileID() const { return file_->m_file_meta->m_file_id; }
 
   virtual void SetWriteLifeTimeHint(Env::WriteLifeTimeHint hint) override {
     // IMPL IN FUTURE VERSION
@@ -192,7 +170,7 @@ class TerarkfsWritableFile : public WritableFile {
     // IMPL IN FUTURE VERSION
     return Status::OK();
   }
-  
+
   virtual Status RangeSync(uint64_t offset, uint64_t nbytes) override {
     // IMPL IN FUTURE VERSION
     return Status::OK();
@@ -200,11 +178,10 @@ class TerarkfsWritableFile : public WritableFile {
 };
 class TerarkfsDirectory : public Directory {
   size_t id_;
-public:
+
+ public:
   explicit TerarkfsDirectory(size_t id) : id_(id) {}
-  virtual Status Fsync() override {
-    return Status::OK();
-  }
+  virtual Status Fsync() override { return Status::OK(); }
 };
 
 class TerarkfsEnv : public EnvWrapper {
@@ -227,14 +204,14 @@ class TerarkfsEnv : public EnvWrapper {
   virtual Status NewRandomRWFile(const std::string& fname,
                                  std::unique_ptr<RandomRWFile>* result,
                                  const EnvOptions& options) override {
-    return Status::NotSupported(); 
+    return Status::NotSupported();
   }
 
   virtual Status ReuseWritableFile(const std::string& fname,
                                    const std::string& old_fname,
                                    std::unique_ptr<WritableFile>* result,
                                    const EnvOptions& options) override {
-    return Status::NotSupported(); 
+    return Status::NotSupported();
   }
 
   virtual Status NewWritableFile(const std::string& fname,
@@ -277,11 +254,6 @@ class TerarkfsEnv : public EnvWrapper {
   virtual Status LockFile(const std::string& fname, FileLock** flock) override;
 
   virtual Status UnlockFile(FileLock* flock) override;
-
-  // Results of these can be affected by FakeSleepForMicroseconds()
-  virtual Status GetCurrentTime(int64_t* unix_time) override;
-  virtual uint64_t NowMicros() override;
-  virtual uint64_t NowNanos() override;
 
  private:
   std::unique_ptr<masse::masse_storage> storage_;

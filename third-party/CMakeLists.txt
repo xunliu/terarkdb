@@ -186,3 +186,8 @@ ENDIF()
 IF(WITH_TERARK_ZIP)
   add_subdirectory(terark-zip)
 ENDIF()
+
+# TerarkFS
+IF(WITH_TERARKFS)
+  add_subdirectory(terarkfs)
+ENDIF()
