@@ -61,7 +61,7 @@ class TerarkfsSequentialFile : public SequentialFile {
   virtual bool use_direct_io() const override { return false; }
 
   virtual size_t GetRequiredBufferAlignment() const override {
-    return masse::MASSE_WRITE_ALIGN_SIZE;
+    return 1; //masse::MASSE_WRITE_ALIGN_SIZE;
   }
 
   size_t GetTerarkfsFileID() const { return file_->m_file_meta->m_file_id; }
@@ -94,10 +94,10 @@ class TerarkfsRandomAccessFile : public RandomAccessFile {
 
   virtual bool use_aio_reads() const final { return false; }
 
-  virtual bool use_direct_io() const final { return true; }
+  virtual bool use_direct_io() const final { return false; }
 
   virtual size_t GetRequiredBufferAlignment() const final {
-    return masse::MASSE_WRITE_ALIGN_SIZE;
+    return 1; //masse::MASSE_WRITE_ALIGN_SIZE;
   }
 
   size_t GetTerarkfsFileID() const { return file_->m_file_meta->m_file_id; }
@@ -143,6 +143,7 @@ class TerarkfsWritableFile : public WritableFile {
   }
 
   virtual Status Close() override {
+    file_->flush(true);
     file_->close();
     return Status::OK();
   }
@@ -154,10 +155,10 @@ class TerarkfsWritableFile : public WritableFile {
   virtual bool IsSyncThreadSafe() const override { return true; }
 
   virtual size_t GetRequiredBufferAlignment() const final {
-    return masse::MASSE_WRITE_ALIGN_SIZE;
+    return 1; //masse::MASSE_WRITE_ALIGN_SIZE;
   }
 
-  virtual bool use_direct_io() const final { return true; }
+  virtual bool use_direct_io() const final { return false; }
 
   size_t GetTerarkfsFileID() const { return file_->m_file_meta->m_file_id; }
 

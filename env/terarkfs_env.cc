@@ -61,7 +61,11 @@ Status TerarkfsEnv::NewDirectory(const std::string& dirname,
 }
 
 Status TerarkfsEnv::FileExists(const std::string& fname) {
-  return Status::NotSupported();
+  size_t ret = size_t(-1);
+  if ((ret = storage_->get_file_size(fname)) == size_t(-1)) {
+    return Status::NotFound();
+  }
+  return Status::OK();
 }
 
 Status TerarkfsEnv::GetChildren(const std::string& dirname,
@@ -87,7 +91,7 @@ Status TerarkfsEnv::DeleteFile(const std::string& fname) {
 }
 
 Status TerarkfsEnv::Truncate(const std::string& fname, size_t size) {
-  return Status::NotSupported();
+  return Status::OK();
 }
 
 Status TerarkfsEnv::CreateDir(const std::string& dirname) {
@@ -121,7 +125,7 @@ Status TerarkfsEnv::CreateDirIfMissing(const std::string& dirname) {
 }
 
 Status TerarkfsEnv::DeleteDir(const std::string& dirname) {
-  return Status::NotSupported();
+  return Status::OK();
 }
 
 Status TerarkfsEnv::GetFileSize(const std::string& fname, uint64_t* file_size) {
@@ -133,7 +137,7 @@ Status TerarkfsEnv::GetFileSize(const std::string& fname, uint64_t* file_size) {
 
 Status TerarkfsEnv::GetFileModificationTime(const std::string& fname,
                                             uint64_t* time) {
-  return Status::NotSupported();
+  return Status::OK();
 }
 
 Status TerarkfsEnv::RenameFile(const std::string& src,
@@ -146,7 +150,7 @@ Status TerarkfsEnv::RenameFile(const std::string& src,
 
 Status TerarkfsEnv::LinkFile(const std::string& src,
                              const std::string& target) {
-  return Status::NotSupported();
+  return Status::OK();
 }
 
 Status TerarkfsEnv::NewLogger(const std::string& fname,
@@ -160,10 +164,10 @@ Status TerarkfsEnv::NewLogger(const std::string& fname,
 }
 
 Status TerarkfsEnv::LockFile(const std::string& fname, FileLock** flock) {
-  return Status::NotSupported();
+  return Status::OK();
 }
 
 Status TerarkfsEnv::UnlockFile(FileLock* flock) {
-  return Status::NotSupported();
+  return Status::OK();
 }
 }  // namespace rocksdb
