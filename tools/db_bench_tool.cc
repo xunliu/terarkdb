@@ -37,6 +37,7 @@
 #include "db/malloc_stats.h"
 #include "db/version_set.h"
 #include "hdfs/env_hdfs.h"
+#include "env/terarkfs_env.h"
 #include "monitoring/histogram.h"
 #include "monitoring/statistics.h"
 #include "options/cf_options.h"
@@ -817,11 +818,14 @@ DEFINE_uint64(prepare_log_writer_num, 1, "");
 #ifndef ROCKSDB_LITE
 DEFINE_string(env_uri, "",
               "URI for registry Env lookup. Mutually exclusive"
-              " with --hdfs.");
+              " --env_uri.");
 #endif  // ROCKSDB_LITE
 DEFINE_string(hdfs, "",
               "Name of hdfs environment. Mutually exclusive with"
-              " --env_uri.");
+              " with --hdfs.");
+DEFINE_string(terarkfs, "", "Name of terarkfs environment, Mutually exclusive with"
+              " --terarkfs.");
+
 static rocksdb::Env* FLAGS_env = rocksdb::Env::Default();
 
 DEFINE_int64(stats_interval, 0,
@@ -1099,7 +1103,7 @@ DEFINE_bool(use_plain_table, false,
             "instead of block-based table format");
 DEFINE_bool(use_cuckoo_table, false, "if use cuckoo table format");
 DEFINE_double(cuckoo_hash_ratio, 0.9, "Hash ratio for Cuckoo SST table.");
-DEFINE_bool(use_terark_table, true, "if use terark table format");
+DEFINE_bool(use_terark_table, false, "if use terark table format");
 DEFINE_int32(cbt_hash_bit, 0,
              "the num of hash bits when use critbit trie prefix");
 DEFINE_int32(cbt_entry_per_trie, 65536,
@@ -5827,6 +5831,10 @@ int db_bench_tool(int argc, char** argv) {
 #endif  // ROCKSDB_LITE
   if (!FLAGS_hdfs.empty()) {
     FLAGS_env = new rocksdb::HdfsEnv(FLAGS_hdfs);
+  }
+  if (!FLAGS_terarkfs.empty()) {
+    FLAGS_env = new rocksdb::TerarkfsEnv(FLAGS_env);
+    ((rocksdb::TerarkfsEnv*)FLAGS_env)->initialize(FLAGS_terarkfs.c_str());
   }
 
   if (!strcasecmp(FLAGS_compaction_fadvice.c_str(), "NONE"))

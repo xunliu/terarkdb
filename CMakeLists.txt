@@ -92,6 +92,8 @@ ENDIF()
 if(WITH_TERARKFS)
   GET_TARGET_PROPERTY(terarkfs_include_dir masse INCLUDE_DIRECTORIES)
   INCLUDE_DIRECTORIES(${terarkfs_include_dir})
+  list(APPEND THIRDPARTY_LIBS masse)
+  message("[terarkdb] terarkfs include dir: ${terarkfs_INCLUDE_DIR}")
 ENDIF()
 
 #-------------------------- Third-party Library Flags for RocksDB

@@ -13,6 +13,8 @@
 #include <string>
 #include <vector>
 
+#include "sys/time.h"
+
 #include "masse_storage.h"
 #include "rocksdb/env.h"
 #include "rocksdb/status.h"
@@ -29,7 +31,6 @@ class TerarkfsSequentialFile : public SequentialFile {
   TerarkfsSequentialFile(masse::masse_readable_file* file,
                          const EnvOptions& options)
       : file_(file) {
-    assert(options.use_direct_reads && !options.use_aio_reads);
   }
 
   virtual ~TerarkfsSequentialFile() { file_->close(); }
@@ -74,7 +75,6 @@ class TerarkfsRandomAccessFile : public RandomAccessFile {
   TerarkfsRandomAccessFile(masse::masse_readable_file* file,
                            const EnvOptions& options)
       : file_(file) {
-    assert(options.use_direct_reads && !options.use_aio_reads);
   }
 
   virtual ~TerarkfsRandomAccessFile() { file_->close(); }
@@ -111,7 +111,6 @@ class TerarkfsWritableFile : public WritableFile {
   explicit TerarkfsWritableFile(masse::masse_writable_file* file,
                                 const EnvOptions& options)
       : file_(file) {
-    assert(options.use_direct_reads && !options.use_aio_reads);
   }
 
   virtual ~TerarkfsWritableFile() { file_->close(); }
@@ -184,6 +183,131 @@ class TerarkfsDirectory : public Directory {
   virtual Status Fsync() override { return Status::OK(); }
 };
 
+class TerarkfsLogger : public Logger {
+ private:
+  Status TerarkfsCloseHelper() {
+    file_->close();
+    return Status::OK();
+  }
+
+  uint64_t gettid() {
+    pthread_t tid = pthread_self();
+    uint64_t thread_id = 0;
+    memcpy(&thread_id, &tid, std::min(sizeof(thread_id), sizeof(tid)));
+    return thread_id;
+  };
+
+  masse::masse_writable_file* file_;
+  std::atomic_size_t log_size_;
+  int fd_;
+  const static uint64_t flush_every_seconds_ = 5;
+  std::atomic_uint_fast64_t last_flush_micros_;
+  Env* env_;
+  std::atomic<bool> flush_pending_;
+
+ protected:
+  virtual Status CloseImpl() override { return TerarkfsCloseHelper(); }
+
+ public:
+  TerarkfsLogger(masse::masse_writable_file* f, Env* env,
+              const InfoLogLevel log_level = InfoLogLevel::ERROR_LEVEL)
+      : Logger(log_level),
+        file_(f),
+        log_size_(0),
+        fd_(f->m_file_meta->m_file_id),
+        last_flush_micros_(0),
+        env_(env),
+        flush_pending_(false) {}
+
+  virtual ~TerarkfsLogger() {
+    if (!closed_) {
+      closed_ = true;
+      TerarkfsCloseHelper();
+    }
+  }
+  
+  virtual void Flush() override {
+    if (flush_pending_) {
+      flush_pending_ = false;
+      file_->flush(false);
+    }
+    last_flush_micros_ = env_->NowMicros();
+  }
+
+  using Logger::Logv;
+  virtual void Logv(const char* format, va_list ap) override {
+
+    // We try twice: the first time with a fixed-size stack allocated buffer,
+    // and the second time with a larger dynamically allocated buffer.
+    char buffer[500];
+    ptrdiff_t bufsize = sizeof(buffer);
+    for (int iter = 0; iter < 2; iter++) {
+      char* base;
+      if (iter == 0) {
+        base = buffer;
+      } else {
+        base = new char[bufsize];
+      }
+      char* p = base;
+      char* limit = base + bufsize;
+
+      struct timeval now_tv;
+      gettimeofday(&now_tv, nullptr);
+      const time_t seconds = now_tv.tv_sec;
+      struct tm t;
+      localtime_r(&seconds, &t);
+      p += snprintf(p, limit - p,
+                    "%04d/%02d/%02d-%02d:%02d:%02d.%06d %llx ",
+                    t.tm_year + 1900,
+                    t.tm_mon + 1,
+                    t.tm_mday,
+                    t.tm_hour,
+                    t.tm_min,
+                    t.tm_sec,
+                    static_cast<int>(now_tv.tv_usec),
+                    static_cast<long long unsigned int>(gettid()));
+
+      // Print the message
+      va_list backup_ap;
+      va_copy(backup_ap, ap);
+      p += vsnprintf(p, p < limit ? (limit - p) : 0, format, backup_ap);
+      va_end(backup_ap);
+
+      // Truncate to available space if necessary
+      if (p >= limit) {
+        assert(iter == 0);
+        bufsize = p + 1 - base;
+        continue; // try again with larger buffer
+      }
+
+      // Add newline if necessary
+      if (p == base || p[-1] != '\n') {
+        *p++ = '\n';
+      }
+
+      assert(p <= limit);
+      const size_t write_size = p - base;
+
+      size_t sz = file_->write(base, write_size);
+      flush_pending_ = true;
+      if (sz > 0) {
+        log_size_ += write_size;
+      }
+      uint64_t now_micros = static_cast<uint64_t>(now_tv.tv_sec) * 1000000 +
+        now_tv.tv_usec;
+      if (now_micros - last_flush_micros_ >= flush_every_seconds_ * 1000000) {
+        Flush();
+      }
+      if (base != buffer) {
+        delete[] base;
+      }
+      break;
+    }
+  }
+
+  size_t GetLogFileSize() const override { return log_size_; }
+};
+
 class TerarkfsEnv : public EnvWrapper {
  public:
   explicit TerarkfsEnv(Env* base_env);
@@ -218,12 +342,12 @@ class TerarkfsEnv : public EnvWrapper {
                                  std::unique_ptr<WritableFile>* result,
                                  const EnvOptions& options) override;
 
-  virtual Status NewDirectory(const std::string& name,
+  virtual Status NewDirectory(const std::string& dirname,
                               std::unique_ptr<Directory>* result) override;
 
   virtual Status FileExists(const std::string& fname) override;
 
-  virtual Status GetChildren(const std::string& dir,
+  virtual Status GetChildren(const std::string& dirname,
                              std::vector<std::string>* result) override;
 
   virtual Status DeleteFile(const std::string& fname) override;
@@ -257,7 +381,8 @@ class TerarkfsEnv : public EnvWrapper {
 
  private:
   std::unique_ptr<masse::masse_storage> storage_;
-  std::string NormalizePath(const std::string path);
+
+  std::string NormalizePath(const std::string& path);
 };
 
 }  // namespace rocksdb
