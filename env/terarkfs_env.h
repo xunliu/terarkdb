@@ -36,20 +36,22 @@ class TerarkfsSequentialFile : public SequentialFile {
   virtual ~TerarkfsSequentialFile() { file_->close(); }
 
   virtual Status Read(size_t n, Slice* result, char* scratch) override {
-    if (file_->pread(scratch, n, offset_, nullptr, true) != n) {
+    ssize_t r;
+    if ((r = file_->pread(scratch, n, offset_, nullptr, true)) < 0) {
       return Status::Corruption();
     }
-    *result = Slice(scratch, n);
-    offset_ += n;
+    *result = Slice(scratch, r);
+    offset_ += r;
     return Status::OK();
   }
 
   virtual Status PositionedRead(uint64_t offset, size_t n, Slice* result,
                                 char* scratch) override {
-    if (file_->pread(scratch, n, offset, nullptr, true) != n) {
+    ssize_t r;
+    if ((r = file_->pread(scratch, n, offset, nullptr, true)) < 0) {
       return Status::Corruption();
     }
-    *result = Slice(scratch, n);
+    *result = Slice(scratch, r);
     return Status::OK();
   }
 
@@ -81,10 +83,11 @@ class TerarkfsRandomAccessFile : public RandomAccessFile {
 
   virtual Status Read(uint64_t offset, size_t n, Slice* result,
                       char* scratch) const final {
-    if (file_->pread(scratch, n, offset, nullptr, true) != n) {
+    ssize_t r;
+    if ((r = file_->pread(scratch, n, offset, nullptr, true)) < 0) {
       return Status::Corruption();
     }
-    *result = Slice(scratch, n);
+    *result = Slice(scratch, r);
     return Status::OK();
   }
 
