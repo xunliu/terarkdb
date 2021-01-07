@@ -133,20 +133,24 @@ class TerarkfsWritableFile : public WritableFile {
     return Status::NotSupported();
   }
 
-  virtual Status Sync() override { return Status::OK(); }
+  virtual Status Sync() override {
+    file_->flush(true, true);
+    return Status::OK();
+  }
 
   virtual Status Fsync() override {
-    file_->flush(false);
+    file_->flush(true, false);
     return Status::OK();
   }
 
   virtual Status Flush() override {
-    file_->flush(true);
+    // Insignificant cached size of file object comparing with kernel's implementation.
+    // file_->flush(false, false);
     return Status::OK();
   }
 
   virtual Status Close() override {
-    file_->flush(true);
+    file_->flush(true, true);
     file_->close();
     return Status::OK();
   }

@@ -5834,7 +5834,9 @@ int db_bench_tool(int argc, char** argv) {
   }
   if (!FLAGS_terarkfs.empty()) {
     FLAGS_env = new rocksdb::TerarkfsEnv(FLAGS_env);
-    ((rocksdb::TerarkfsEnv*)FLAGS_env)->initialize(FLAGS_terarkfs.c_str());
+    if (((rocksdb::TerarkfsEnv*)FLAGS_env)->initialize(FLAGS_terarkfs.c_str()) < 0) {
+      return -1;
+    }
   }
 
   if (!strcasecmp(FLAGS_compaction_fadvice.c_str(), "NONE"))
