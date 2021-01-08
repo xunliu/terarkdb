@@ -38,6 +38,8 @@ class TerarkfsSequentialFile : public SequentialFile {
   virtual Status Read(size_t n, Slice* result, char* scratch) override {
     ssize_t r;
     if ((r = file_->pread(scratch, n, offset_, nullptr, true)) < 0) {
+      Status::Corruption();
+      file_->pread(scratch, n, offset_, nullptr, true);
       return Status::Corruption();
     }
     *result = Slice(scratch, r);
@@ -49,6 +51,8 @@ class TerarkfsSequentialFile : public SequentialFile {
                                 char* scratch) override {
     ssize_t r;
     if ((r = file_->pread(scratch, n, offset, nullptr, true)) < 0) {
+      Status::Corruption();
+      file_->pread(scratch, n, offset, nullptr, true);
       return Status::Corruption();
     }
     *result = Slice(scratch, r);
@@ -66,7 +70,7 @@ class TerarkfsSequentialFile : public SequentialFile {
     return 1; //masse::MASSE_WRITE_ALIGN_SIZE;
   }
 
-  size_t GetTerarkfsFileID() const { return file_->m_file_meta->m_file_id; }
+  size_t GetTerarkfsFileID() const { return file_->m_file_meta->m_meta_addr; }
 };
 
 class TerarkfsRandomAccessFile : public RandomAccessFile {
@@ -85,6 +89,13 @@ class TerarkfsRandomAccessFile : public RandomAccessFile {
                       char* scratch) const final {
     ssize_t r;
     if ((r = file_->pread(scratch, n, offset, nullptr, true)) < 0) {
+      auto print_info = [&]() {
+        fprintf(stderr, "TREF: %20s, %8zd, %8zd, %8zd\n", file_->m_file_meta->m_file_name, r, offset, n);
+      };
+      print_info();
+      Status::Corruption();
+      r = file_->pread(scratch, n, offset, nullptr, true);
+      print_info();
       return Status::Corruption();
     }
     *result = Slice(scratch, r);
