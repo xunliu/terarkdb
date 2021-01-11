@@ -96,15 +96,8 @@ class TerarkfsRandomAccessFile : public RandomAccessFile {
                       char* scratch) const final {
     ssize_t r;
     if ((r = file_->pread(scratch, n, offset, nullptr, true)) < 0) {
-      auto print_info = [&]() {
-        fprintf(stderr, "TREF: %20s, %8zd, %8zd, %8zd\n",
-                file_->m_file_meta->m_file_name, r, offset, n);
-      };
-      print_info();
-      Status::Corruption();
-      r = file_->pread(scratch, n, offset, nullptr, true);
-      print_info();
-      return Status::Corruption();
+      return Status::Corruption("TerarkfsRandomAccessFile::Read fail code = " +
+                                std::to_string(r));
     }
     *result = Slice(scratch, r);
     return Status::OK();
@@ -208,7 +201,11 @@ class TerarkfsDirectory : public Directory {
 
  public:
   explicit TerarkfsDirectory(size_t id) : id_(id) {}
-  virtual Status Fsync() override { return Status::OK(); }
+  virtual Status Fsync() override {
+    // TODO sync dir
+    (void)id_;
+    return Status::OK();
+  }
 };
 
 class TerarkfsLogger : public Logger {
@@ -235,7 +232,6 @@ class TerarkfsLogger : public Logger {
   const static uint64_t flush_every_seconds_ = 5;
   std::atomic_uint_fast64_t last_flush_micros_;
   Env* env_;
-  std::atomic<bool> flush_pending_;
 
  protected:
   virtual Status CloseImpl() override { return TerarkfsCloseHelper(); }
@@ -248,8 +244,9 @@ class TerarkfsLogger : public Logger {
         log_size_(0),
         fd_(f->m_file_meta->m_file_id),
         last_flush_micros_(0),
-        env_(env),
-        flush_pending_(false) {}
+        env_(env) {
+    (void)fd_;
+  }
 
   virtual ~TerarkfsLogger() {
     if (!closed_) {
@@ -259,10 +256,7 @@ class TerarkfsLogger : public Logger {
   }
 
   virtual void Flush() override {
-    if (flush_pending_) {
-      flush_pending_ = false;
-      file_->flush(false);
-    }
+    file_->flush(false, false);
     last_flush_micros_ = env_->NowMicros();
   }
 
@@ -314,7 +308,6 @@ class TerarkfsLogger : public Logger {
       const size_t write_size = p - base;
 
       size_t sz = file_->write(base, write_size);
-      flush_pending_ = true;
       if (sz > 0) {
         log_size_ += write_size;
       }

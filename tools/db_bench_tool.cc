@@ -36,8 +36,8 @@
 #include "db/db_impl.h"
 #include "db/malloc_stats.h"
 #include "db/version_set.h"
-#include "hdfs/env_hdfs.h"
 #include "env/terarkfs_env.h"
+#include "hdfs/env_hdfs.h"
 #include "monitoring/histogram.h"
 #include "monitoring/statistics.h"
 #include "options/cf_options.h"
@@ -71,6 +71,7 @@
 #include "util/random.h"
 #include "util/stderr_logger.h"
 #include "util/string_util.h"
+#include "util/testharness.h"
 #include "util/testutil.h"
 #include "util/transaction_test_util.h"
 #include "util/xxhash.h"
@@ -823,7 +824,8 @@ DEFINE_string(env_uri, "",
 DEFINE_string(hdfs, "",
               "Name of hdfs environment. Mutually exclusive with"
               " with --hdfs.");
-DEFINE_string(terarkfs, "", "Name of terarkfs environment, Mutually exclusive with"
+DEFINE_string(terarkfs, "",
+              "Name of terarkfs environment, Mutually exclusive with"
               " --terarkfs.");
 
 static rocksdb::Env* FLAGS_env = rocksdb::Env::Default();
@@ -1346,7 +1348,7 @@ struct DBWithColumnFamilies {
   DB* db;
 #ifndef ROCKSDB_LITE
   OptimisticTransactionDB* opt_txn_db;
-#endif                              // ROCKSDB_LITE
+#endif  // ROCKSDB_LITE
   std::atomic<size_t> num_created;  // Need to be updated after all the
                                     // new entries in cfh are set.
   size_t num_hot;  // Number of column families to be queried at each moment.
@@ -5777,6 +5779,7 @@ int db_bench_tool(int argc, char** argv) {
                     " [OPTIONS]...");
     initialized = true;
   }
+  ::testing::InitGoogleTest(&argc, argv);
   ParseCommandLineFlags(&argc, &argv, true);
   FLAGS_compaction_style_e = (rocksdb::CompactionStyle)FLAGS_compaction_style;
 #ifndef ROCKSDB_LITE
@@ -5834,7 +5837,8 @@ int db_bench_tool(int argc, char** argv) {
   }
   if (!FLAGS_terarkfs.empty()) {
     FLAGS_env = new rocksdb::TerarkfsEnv(FLAGS_env);
-    if (((rocksdb::TerarkfsEnv*)FLAGS_env)->initialize(FLAGS_terarkfs.c_str()) < 0) {
+    if (((rocksdb::TerarkfsEnv*)FLAGS_env)->initialize(FLAGS_terarkfs.c_str()) <
+        0) {
       return -1;
     }
   }

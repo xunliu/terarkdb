@@ -14,14 +14,13 @@
 #include <vector>
 
 #include "options/options_helper.h"
+#include "port/port.h"
 #include "rocksdb/convenience.h"
 #include "rocksdb/db.h"
 #include "util/cast_util.h"
 #include "util/file_reader_writer.h"
 #include "util/string_util.h"
 #include "util/sync_point.h"
-
-#include "port/port.h"
 
 namespace rocksdb {
 
@@ -60,9 +59,9 @@ Status PersistRocksDBOptions(const DBOptions& db_opt,
                    "  rocksdb_version=" +
                    ToString(ROCKSDB_MAJOR) + "." + ToString(ROCKSDB_MINOR) +
                    "." + ToString(ROCKSDB_PATCH) + "\n");
-  writable->Append("  options_file_version=" +
-                   ToString(ROCKSDB_OPTION_FILE_MAJOR) + "." +
-                   ToString(ROCKSDB_OPTION_FILE_MINOR) + "\n");
+  writable->Append(
+      "  options_file_version=" + ToString(ROCKSDB_OPTION_FILE_MAJOR) + "." +
+      ToString(ROCKSDB_OPTION_FILE_MINOR) + "\n");
   writable->Append("\n[" + opt_section_titles[kOptionSectionDBOptions] +
                    "]\n  ");
 
@@ -297,9 +296,8 @@ Status RocksDBOptionsParser::CheckSection(const OptionSection section,
   } else if (section == kOptionSectionTableOptions) {
     if (GetCFOptions(section_arg) == nullptr) {
       return InvalidArgument(
-          line_num, std::string(
-                        "Does not find a matched column family name in "
-                        "TableOptions section.  Column Family Name:") +
+          line_num, std::string("Does not find a matched column family name in "
+                                "TableOptions section.  Column Family Name:") +
                         section_arg);
     }
   } else if (section == kOptionSectionVersion) {
@@ -409,7 +407,7 @@ Status RocksDBOptionsParser::EndSection(
       return s;
     }
   } else if (section == kOptionSectionVersion) {
-    for (const auto pair : opt_map) {
+    for (auto& pair : opt_map) {
       if (pair.first == "rocksdb_version") {
         s = ParseVersionNumber(pair.first, pair.second, 3, db_version);
         if (!s.ok()) {
@@ -509,20 +507,18 @@ bool AreEqualOptions(
     case OptionType::kUInt32T:
       return (*reinterpret_cast<const uint32_t*>(offset1) ==
               *reinterpret_cast<const uint32_t*>(offset2));
-    case OptionType::kUInt64T:
-      {
-        uint64_t v1, v2;
-        GetUnaligned(reinterpret_cast<const uint64_t*>(offset1), &v1);
-        GetUnaligned(reinterpret_cast<const uint64_t*>(offset2), &v2);
-        return (v1 == v2);
-      }
-    case OptionType::kSizeT:
-      {
-        size_t v1, v2;
-        GetUnaligned(reinterpret_cast<const size_t*>(offset1), &v1);
-        GetUnaligned(reinterpret_cast<const size_t*>(offset2), &v2);
-        return (v1 == v2);
-      }
+    case OptionType::kUInt64T: {
+      uint64_t v1, v2;
+      GetUnaligned(reinterpret_cast<const uint64_t*>(offset1), &v1);
+      GetUnaligned(reinterpret_cast<const uint64_t*>(offset2), &v2);
+      return (v1 == v2);
+    }
+    case OptionType::kSizeT: {
+      size_t v1, v2;
+      GetUnaligned(reinterpret_cast<const size_t*>(offset1), &v1);
+      GetUnaligned(reinterpret_cast<const size_t*>(offset2), &v2);
+      return (v1 == v2);
+    }
     case OptionType::kString:
       return (*reinterpret_cast<const std::string*>(offset1) ==
               *reinterpret_cast<const std::string*>(offset2));
