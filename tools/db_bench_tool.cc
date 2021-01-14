@@ -2407,6 +2407,10 @@ class Benchmark {
       // this will leak, but we're shutting down so nobody cares
       cache_->DisownData();
     }
+    if (!FLAGS_terarkfs.empty()) {
+      delete FLAGS_env;
+      FLAGS_env = nullptr;
+    }
   }
 
   Slice AllocateKey(std::unique_ptr<const char[]>* key_guard) {
