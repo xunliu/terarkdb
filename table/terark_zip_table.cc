@@ -348,6 +348,7 @@ TableBuilder* TerarkZipTableFactory::NewTableBuilder(
   int curlevel = table_builder_options.level;
   int numlevel = table_builder_options.ioptions.num_levels;
   int minlevel = table_options_.terarkZipMinLevel;
+  bool force_use_fallback = minlevel == -2;
   if (minlevel < 0) {
     minlevel = numlevel - 1;
   }
@@ -371,17 +372,26 @@ TableBuilder* TerarkZipTableFactory::NewTableBuilder(
     keyPrefixLen = 0;
   }
 #if 1
-  INFO(table_builder_options.ioptions.info_log,
-       "nth_newtable{ terark = %3zd fallback = %3zd } curlevel = %d minlevel = "
-       "%d numlevel = %d fallback = %p\n",
-       nth_new_terark_table_, nth_new_fallback_table_, curlevel, minlevel,
-       numlevel, fallback_factory_.get());
+  if (force_use_fallback) {
+    INFO(table_builder_options.ioptions.info_log,
+         "nth_newtable{ terark = %3zd fallback = %3zd } curlevel = %d "
+         "numlevel = %d fallback = %p (force_use)\n",
+         nth_new_terark_table_, nth_new_fallback_table_, curlevel, numlevel,
+         fallback_factory_.get());
+  } else {
+    INFO(table_builder_options.ioptions.info_log,
+         "nth_newtable{ terark = %3zd fallback = %3zd } curlevel = %d minlevel "
+         "= "
+         "%d numlevel = %d fallback = %p\n",
+         nth_new_terark_table_, nth_new_fallback_table_, curlevel, minlevel,
+         numlevel, fallback_factory_.get());
+  }
 #endif
   if (0 == nth_new_terark_table_) {
     g_lastTime = g_pf.now();
   }
   if (fallback_factory_) {
-    if (curlevel >= 0 && curlevel < minlevel) {
+    if (force_use_fallback || (curlevel >= 0 && curlevel < minlevel)) {
       nth_new_fallback_table_++;
       TableBuilder* tb = fallback_factory_->NewTableBuilder(
           table_builder_options, column_family_id, file);
