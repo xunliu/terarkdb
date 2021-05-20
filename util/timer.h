@@ -24,6 +24,9 @@ namespace TERARKDB_NAMESPACE {
 
 // A Timer class to handle repeated work.
 //
+// `Start()` and `Shutdown()` are currently not thread-safe. The client must
+// serialize calls to these two member functions.
+//
 // A single timer instance can handle multiple functions via a single thread.
 // It is better to leave long running work to a dedicated thread pool.
 //
@@ -43,6 +46,7 @@ class Timer {
         cond_var_(&mutex_),
         running_(false),
         executing_task_(false) {}
+  ~Timer() { Shutdown(); }
   // Add a new function to run.
   // fn_name has to be identical, otherwise, the new one overrides the existing
   // one, regardless if the function is pending removed (invalid) or not.

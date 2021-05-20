@@ -486,8 +486,6 @@ class LevelIterator final : public InternalIterator, public Snapshot {
       snapshot_ = read_options_.snapshot->GetSequenceNumber();
       read_options_.snapshot = this;
     }
-    read_options_.iterate_lower_bound = nullptr;
-    read_options_.iterate_upper_bound = nullptr;
   }
 
   virtual ~LevelIterator() { delete file_iter_.Set(nullptr); }
@@ -1197,7 +1195,8 @@ VersionStorageInfo::VersionStorageInfo(
       finalized_(false),
       is_pick_compaction_fail(false),
       is_pick_garbage_collection_fail(false),
-      force_consistency_checks_(_force_consistency_checks) {
+      force_consistency_checks_(_force_consistency_checks),
+      blob_marked_for_compaction_(false) {
   ++files_;  // level -1 used for dependence files
 }
 
@@ -1766,15 +1765,20 @@ void VersionStorageInfo::ComputeCompactionScore(
   }
 
   // Calculate total_garbage_ratio_ as criterion for NeedsGarbageCollection().
-  double num_entries = 0;
+  uint64_t num_antiquation = 0;
+  uint64_t num_entries = 0;
+  bool marked = false;
   for (auto& f : LevelFiles(-1)) {
     if (f->is_gc_forbidden()) {
       continue;
     }
-    total_garbage_ratio_ += f->num_antiquation;
+    // if a file being_compacted, gc_status must be kGarbageCollectionForbidden
+    marked |= f->marked_for_compaction;
+    num_antiquation += f->num_antiquation;
     num_entries += f->prop.num_entries;
   }
-  total_garbage_ratio_ /= std::max<double>(1, num_entries);
+  blob_marked_for_compaction_ = marked;
+  total_garbage_ratio_ = num_antiquation / std::max<double>(1, num_entries);
 
   is_pick_compaction_fail = false;
   ComputeFilesMarkedForCompaction();
@@ -2172,22 +2176,21 @@ void VersionStorageInfo::ComputeBottommostFilesMarkedForCompaction() {
   bottommost_files_marked_for_compaction_.clear();
   bottommost_files_mark_threshold_ = kMaxSequenceNumber;
   for (auto& level_and_file : bottommost_files_) {
-    if (!level_and_file.second->being_compacted) {
-      if (level_and_file.second->fd.largest_seqno != 0 &&
-          level_and_file.second->prop.num_deletions > 1) {
-        // largest_seqno might be nonzero due to containing the final key in an
-        // earlier compaction, whose seqnum we didn't zero out. Multiple
-        // deletions ensures the file really contains deleted or overwritten
-        // keys.
-        if (level_and_file.second->fd.largest_seqno < oldest_snapshot_seqnum_) {
-          bottommost_files_marked_for_compaction_.push_back(level_and_file);
-        } else {
-          bottommost_files_mark_threshold_ =
-              std::min(bottommost_files_mark_threshold_,
-                       level_and_file.second->fd.largest_seqno);
-        }
-      } else if (level_and_file.second->marked_for_compaction) {
+    auto meta = level_and_file.second;
+    if (meta->being_compacted) {
+      continue;
+    }
+    if (meta->marked_for_compaction) {
+      bottommost_files_marked_for_compaction_.push_back(level_and_file);
+    } else if (meta->prop.has_snapshots()) {
+      // largest_seqno might be nonzero due to containing the final key in an
+      // earlier compaction, whose seqnum we didn't zero out. Multiple deletions
+      // ensures the file really contains deleted or overwritten keys.
+      if (meta->fd.largest_seqno < oldest_snapshot_seqnum_) {
         bottommost_files_marked_for_compaction_.push_back(level_and_file);
+      } else {
+        bottommost_files_mark_threshold_ =
+            std::min(bottommost_files_mark_threshold_, meta->fd.largest_seqno);
       }
     }
   }
