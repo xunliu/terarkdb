@@ -21,4 +21,4 @@
 	url = https://github.com/gflags/gflags.git
 [submodule "third-party/terarkfs"]
 	path = third-party/terarkfs
-	url = https://github.com/TeamSKVDS/terarkfs.git
+	url = git@code.byted.org:storage/terarkfs.git
